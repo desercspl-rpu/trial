@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Employee Database Manager (empdata.js)</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --danger: #dc2626;
+      --danger-hover: #b91c1c;
+      --success: #16a34a;
+      --success-hover: #15803d;
+      --warning: #d97706;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --border: #cbd5e1;
+      --text: #0f172a;
+      --muted: #64748b;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { margin: 0; padding: 20px; background: var(--bg); color: var(--text); }
+    .container { max-width: 1150px; margin: 0 auto; }
+
+    header {
+      background: var(--card);
+      padding: 18px 24px;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    header h1 { margin: 0; font-size: 1.35rem; }
+    header p { margin: 4px 0 0; font-size: 0.85rem; color: var(--muted); }
+
+    .btn-group { display: flex; flex-wrap: wrap; gap: 10px; }
+    button {
+      border: none;
+      padding: 9px 15px;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { background: var(--success-hover); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: var(--danger-hover); }
+    .btn-outline { background: #fff; color: var(--text); border: 1px solid var(--border); }
+    .btn-outline:hover { background: #f8fafc; }
+    .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: var(--card);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .card h2 {
+      margin: 0 0 14px;
+      font-size: 1.05rem;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 8px;
+    }
+
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; color: #334155; }
+    input[type="text"], input[type="file"], textarea {
+      width: 100%;
+      padding: 8px 11px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--primary); }
+
+    .helper { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .search-box { flex: 1; min-width: 240px; max-width: 420px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+    th { background: #f8fafc; font-weight: 600; color: #334155; }
+    tr:hover { background: #f8fafc; }
+
+    .badge {
+      background: #e0e7ff;
+      color: #1e40af;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .status-bar {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      display: none;
+    }
+    .status-bar.show { display: block; }
+    .status-info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+    .status-warn { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+    .table-wrap { overflow-x: auto; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div>
+      <h1>Employee Database Manager</h1>
+      <p>Connected to <strong>empdata.js</strong> &bull; Total Records: <span id="totalCount">0</span></p>
+    </div>
+    <div class="btn-group">
+      <button class="btn-outline" onclick="reloadFromOriginal()">Reset / Reload File</button>
+      <button class="btn-primary" onclick="saveDirectToFile()" title="Works in Chrome/Edge to overwrite empdata.js directly">Overwrite empdata.js</button>
+      <button class="btn-success" onclick="downloadEmpDataJS()">Download empdata.js</button>
+    </div>
+  </header>
+
+  <div id="statusBox" class="status-bar"></div>
+
+  <div class="grid">
+    <!-- 1. Manual Add / Update -->
+    <div class="card">
+      <h2 id="formTitle">Add / Update Individual Employee</h2>
+      <form id="empForm" onsubmit="handleManualSubmit(event)">
+        <input type="hidden" id="editIndex" value="-1" />
+        <div class="form-group">
+          <label for="empId">Employee ID *</label>
+          <input type="text" id="empId" placeholder="e.g. EMP/PNE007478" required />
+        </div>
+        <div class="form-group">
+          <label for="empName">Employee Name *</label>
+          <input type="text" id="empName" placeholder="e.g. DIGAMBER MOKANPALLE" required />
+        </div>
+        <div class="form-group">
+          <label for="empPass">Password *</label>
+          <input type="text" id="empPass" placeholder="e.g. Diga0585" required />
+        </div>
+        <div class="btn-group">
+          <button type="submit" class="btn-primary" id="submitBtn">Add Employee</button>
+          <button type="button" class="btn-outline" id="cancelEditBtn" style="display:none;" onclick="resetForm()">Cancel Edit</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 2. Bulk Add / Upload -->
+    <div class="card">
+      <h2>Bulk Add / Upload (CSV)</h2>
+      <div class="form-group">
+        <label>Step 1: Download Template</label>
+        <button type="button" class="btn-outline" onclick="downloadTemplateCSV()">Download CSV Template</button>
+        <div class="helper">Columns: <code>id,name,password</code> (Existing IDs will be updated automatically).</div>
+      </div>
+      <div class="form-group">
+        <label for="csvUpload">Step 2: Upload Filled CSV File</label>
+        <input type="file" id="csvUpload" accept=".csv,.txt" onchange="handleBulkUpload(event)" />
+      </div>
+    </div>
+
+    <!-- 3. Bulk Remove -->
+    <div class="card">
+      <h2>Bulk Remove Employees</h2>
+      <div class="form-group">
+        <label for="bulkRemoveInput">Paste Employee IDs (one per line or comma-separated)</label>
+        <textarea id="bulkRemoveInput" rows="3" placeholder="EMP/PNE007478&#10;EMP/PNE011716"></textarea>
+      </div>
+      <div class="btn-group">
+        <button type="button" class="btn-danger" onclick="handleBulkRemoveText()">Remove Listed IDs</button>
+        <button type="button" class="btn-outline" onclick="document.getElementById('bulkRemoveFile').click()">Remove via CSV File</button>
+        <input type="file" id="bulkRemoveFile" accept=".csv,.txt" style="display:none;" onchange="handleBulkRemoveFile(event)" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Search & Records Table -->
+  <div class="card">
+    <div class="toolbar">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search by Employee ID or Name..." oninput="renderTable()" />
+      </div>
+      <div class="btn-group">
+        <button type="button" class="btn-danger btn-sm" id="deleteSelectedBtn" onclick="deleteSelectedRows()" style="display:none;">
+          Delete Selected (<span id="selectedCount">0</span>)
+        </button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" /></th>
+            <th>#</th>
+            <th>Employee ID</th>
+            <th>Name</th>
+            <th>Password</th>
+            <th style="width:150px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="empTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Load external empdata.js from the same folder -->
+<script src="empdata.js"></script>
+
+<script>
+  // Working copy of employeeDB loaded from empdata.js
+  let workingDB = [];
+
+  window.addEventListener('DOMContentLoaded', () => {
+    if (typeof employeeDB !== 'undefined' && Array.isArray(employeeDB)) {
+      workingDB = JSON.parse(JSON.stringify(employeeDB));
+      showStatus(`Loaded ${workingDB.length} records from empdata.js.`, 'info');
+    } else {
+      workingDB = [];
+      showStatus('empdata.js not found or empty. Starting with an empty database.', 'warn');
+    }
+    renderTable();
+  });
+
+  function showStatus(msg, type = 'info') {
+    const box = document.getElementById('statusBox');
+    box.textContent = msg;
+    box.className = `status-bar show status-${type}`;
+    clearTimeout(box._timer);
+    box._timer = setTimeout(() => box.classList.remove('show'), 5000);
+  }
+
+  function renderTable() {
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const tbody = document.getElementById('empTableBody');
+    document.getElementById('totalCount').textContent = workingDB.length;
+
+    const filtered = workingDB
+      .map((emp, index) => ({ ...emp, originalIndex: index }))
+      .filter(emp =>
+        emp.id.toLowerCase().includes(query) ||
+        emp.name.toLowerCase().includes(query)
+      );
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">No matching employees found.</td></tr>`;
+      updateSelectedUI();
+      return;
+    }
+
+    tbody.innerHTML = filtered.map((emp, idx) => `
+      <tr>
+        <td><input type="checkbox" class="row-check" value="${emp.originalIndex}" onchange="updateSelectedUI()" /></td>
+        <td>${idx + 1}</td>
+        <td><span class="badge">${escapeHTML(emp.id)}</span></td>
+        <td>${escapeHTML(emp.name)}</td>
+        <td><code>${escapeHTML(emp.password)}</code></td>
+        <td>
+          <button class="btn-outline btn-sm" onclick="editEmployee(${emp.originalIndex})">Edit</button>
+          <button class="btn-danger btn-sm" onclick="deleteIndividual(${emp.originalIndex})">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+
+    document.getElementById('selectAll').checked = false;
+    updateSelectedUI();
+  }
+
+  // 1. Add / Update Individual
+  function handleManualSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('empId').value.trim();
+    const name = document.getElementById('empName').value.trim();
+    const password = document.getElementById('empPass').value.trim();
+    const editIndex = parseInt(document.getElementById('editIndex').value, 10);
+
+    if (!id || !name || !password) return;
+
+    if (editIndex >= 0) {
+      // Check duplicate ID on other rows
+      const duplicate = workingDB.some((item, idx) => idx !== editIndex && item.id.toLowerCase() === id.toLowerCase());
+      if (duplicate) {
+        showStatus(`Employee ID "${id}" already exists on another record.`, 'warn');
+        return;
+      }
+      workingDB[editIndex] = { id, name, password };
+      showStatus(`Updated employee ${id}. Remember to Download/Overwrite empdata.js.`, 'info');
+    } else {
+      const existingIdx = workingDB.findIndex(item => item.id.toLowerCase() === id.toLowerCase());
+      if (existingIdx >= 0) {
+        workingDB[existingIdx] = { id, name, password };
+        showStatus(`Employee ID ${id} already existed — record updated.`, 'info');
+      } else {
+        workingDB.push({ id, name, password });
+        showStatus(`Added employee ${id}. Remember to Download/Overwrite empdata.js.`, 'info');
+      }
+    }
+
+    resetForm();
+    renderTable();
+  }
+
+  function editEmployee(index) {
+    const emp = workingDB[index];
+    document.getElementById('editIndex').value = index;
+    document.getElementById('empId').value = emp.id;
+    document.getElementById('empName').value = emp.name;
+    document.getElementById('empPass').value = emp.password;
+    document.getElementById('formTitle').textContent = `Update Employee (${emp.id})`;
+    document.getElementById('submitBtn').textContent = 'Update Employee';
+    document.getElementById('cancelEditBtn').style.display = 'inline-block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function resetForm() {
+    document.getElementById('empForm').reset();
+    document.getElementById('editIndex').value = -1;
+    document.getElementById('formTitle').textContent = 'Add / Update Individual Employee';
+    document.getElementById('submitBtn').textContent = 'Add Employee';
+    document.getElementById('cancelEditBtn').style.display = 'none';
+  }
+
+  // 2. Delete Individual & Checkbox Bulk Delete
+  function deleteIndividual(index) {
+    const emp = workingDB[index];
+    if (confirm(`Delete employee ${emp.id} (${emp.name})?`)) {
+      workingDB.splice(index, 1);
+      renderTable();
+      showStatus(`Deleted ${emp.id}.`, 'info');
+    }
+  }
+
+  function toggleSelectAll(master) {
+    document.querySelectorAll('.row-check').forEach(cb => cb.checked = master.checked);
+    updateSelectedUI();
+  }
+
+  function updateSelectedUI() {
+    const checked = document.querySelectorAll('.row-check:checked');
+    const btn = document.getElementById('deleteSelectedBtn');
+    document.getElementById('selectedCount').textContent = checked.length;
+    btn.style.display = checked.length > 0 ? 'inline-block' : 'none';
+  }
+
+  function deleteSelectedRows() {
+    const checked = Array.from(document.querySelectorAll('.row-check:checked'))
+      .map(cb => parseInt(cb.value, 10))
+      .sort((a, b) => b - a);
+
+    if (checked.length === 0) return;
+    if (confirm(`Delete ${checked.length} selected employee(s)?`)) {
+      checked.forEach(idx => workingDB.splice(idx, 1));
+      renderTable();
+      showStatus(`Removed ${checked.length} selected employee(s).`, 'info');
+    }
+  }
+
+  // 3. Bulk Template & Upload
+  function downloadTemplateCSV() {
+    const csvContent =
+      "id,name,password\n" +
+      "EMP/PNE007478,DIGAMBER MOKANPALLE,Diga0585\n" +
+      "EMP/PNE011716,DHONDUBA VIJAY KANKHAR,Dhon3450\n";
+    triggerDownload(csvContent, "employee_bulk_template.csv", "text/csv;charset=utf-8;");
+  }
+
+  function handleBulkUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const lines = e.target.result.split(/\r?\n/).filter(line => line.trim() !== '');
+      let added = 0, updated = 0;
+
+      lines.forEach((line, idx) => {
+        const cols = parseCSVLine(line);
+        if (cols.length < 3) return;
+        const [id, name, password] = cols.map(c => c.trim());
+
+        // Skip header row
+        if (idx === 0 && id.toLowerCase() === 'id' && name.toLowerCase() === 'name') return;
+        if (!id || !name || !password) return;
+
+        const existingIdx = workingDB.findIndex(emp => emp.id.toLowerCase() === id.toLowerCase());
+        if (existingIdx >= 0) {
+          workingDB[existingIdx] = { id, name, password };
+          updated++;
+        } else {
+          workingDB.push({ id, name, password });
+          added++;
+        }
+      });
+
+      event.target.value = '';
+      renderTable();
+      showStatus(`Bulk Upload Complete: ${added} added, ${updated} updated.`, 'info');
+    };
+    reader.readAsText(file);
+  }
+
+  // 4. Bulk Remove (Textarea or CSV)
+  function removeIDsList(rawText) {
+    const idsToRemove = rawText
+      .split(/[\r\n,]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(s => s && s !== 'id');
+
+    if (idsToRemove.length === 0) {
+      showStatus('Please provide at least one valid Employee ID to remove.', 'warn');
+      return;
+    }
+
+    const idSet = new Set(idsToRemove);
+    const beforeCount = workingDB.length;
+    workingDB = workingDB.filter(emp => !idSet.has(emp.id.toLowerCase()));
+    const removedCount = beforeCount - workingDB.length;
+
+    renderTable();
+    showStatus(`Bulk Remove Complete: ${removedCount} record(s) removed.`, 'info');
+  }
+
+  function handleBulkRemoveText() {
+    const textarea = document.getElementById('bulkRemoveInput');
+    removeIDsList(textarea.value);
+    textarea.value = '';
+  }
+
+  function handleBulkRemoveFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      removeIDsList(e.target.result);
+      event.target.value = '';
+    };
+    reader.readAsText(file);
+  }
+
+  // 5. Generate & Save / Download empdata.js
+  function generateEmpDataJSContent() {
+    const entries = workingDB.map(emp =>
+      `  { id: ${JSON.stringify(emp.id)}, name: ${JSON.stringify(emp.name)}, password: ${JSON.stringify(emp.password)} }`
+    ).join(',\n');
+
+    return `/**\n * Client-side Employee Database\n */\nconst employeeDB = [\n${entries}\n];\n`;
+  }
+
+  function downloadEmpDataJS() {
+    const content = generateEmpDataJSContent();
+    triggerDownload(content, "empdata.js", "application/javascript;charset=utf-8;");
+    showStatus('Downloaded updated empdata.js. Replace the file in your folder if saved to Downloads.', 'info');
+  }
+
+  async function saveDirectToFile() {
+    const content = generateEmpDataJSContent();
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: 'empdata.js',
+          types: [{
+            description: 'JavaScript File',
+            accept: { 'application/javascript': ['.js'] }
+          }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(content);
+        await writable.close();
+        showStatus('Successfully saved changes directly to empdata.js!', 'info');
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          downloadEmpDataJS();
+        }
+      }
+    } else {
+      downloadEmpDataJS();
+    }
+  }
+
+  function reloadFromOriginal() {
+    if (confirm('Discard unsaved changes and reload from empdata.js?')) {
+      location.reload();
+    }
+  }
+
+  // Helpers
+  function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current);
+    return result;
+  }
+
+  function triggerDownload(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function escapeHTML(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+
+</body>
+</html>
